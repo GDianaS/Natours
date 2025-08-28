@@ -1,18 +1,36 @@
 const fs = require('fs')
 const express = require('express');
+const morgan = require('morgan'); //HTTP request logger middleware
 
 const app = express();
 
-app.use(express.json()); //middleware
+// MIDDLEWARES
+app.use(morgan('dev'));
+
+app.use(express.json());
+
+app.use((req, res, next) => {
+    console.log('Hello from the middleware!');
+    next(); //chama a próxima função
+});
+
+
+app.use((req, res, next) => {
+    req.requestTime = new Date().toISOString();
+    next();
+});
+
 
 // ${__dirname} =: arquivo raiz
 const tours = JSON.parse(fs.readFileSync(`${__dirname}/dev-data/data/tours-simple.json`))
 
-
+// ROUTES HANDLERS
 // GET METHOD
 const getAllTours = (req, res) =>{
+    console.log(req.requestTime);
     res.status(200).json({
         status: 'success',
+        requestedAt: req.requestTime,
         results: tours.length, // números de objetos enviados pelo array
         data: {
             tours // tours: tours
@@ -104,6 +122,8 @@ const deleteTour = (req, res) =>{
 
 }
 
+// ROUTES
+
 //app.get('/api/v1/tours', getAllTours)
 //app.post('/api/v1/tours', createTour)
 //app.get('/api/v1/tours/:id', getTour)
@@ -122,6 +142,7 @@ app
     .delete(deleteTour);
 
 
+// START THE SERVER
 const port = 3000;
 app.listen(port, ()=>{
     console.log(`App running on port ${port}...`)
