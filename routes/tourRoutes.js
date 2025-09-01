@@ -5,12 +5,12 @@ const router = express.Router();
 
 // middleware especificados nessa rota (tourRoutes.js), serão apenas para essa rota
 // middleware function que é executada conforme um parametro
-router.param('id', tourController.checkID);
+//router.param('id', tourController.checkID);
 
 router
     .route('/')
     .get(tourController.getAllTours)
-    .post(tourController.checkBody, tourController.createTour); //roda primeiro um middleware e depois outro
+    .post(tourController.createTour); //roda primeiro um middleware e depois outro
 
 router
     .route('/:id')
