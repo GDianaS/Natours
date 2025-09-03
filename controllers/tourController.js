@@ -33,8 +33,48 @@ const Tour = require('./../models/tourModel');
 // GET METHOD
 exports.getAllTours = async (req, res) =>{
     try{
-        const tours = await Tour.find();
-    
+
+        console.log(req.query); // vem do url
+
+        // PESQUISAS/CONSULTAS/FILTER/ QUERIES:
+
+        // A)
+        // const tours = await Tour.find({
+        //     duration: 5,
+        //     difficulty: 'easy'
+        // });
+
+        // B)
+        //const tours = await Tour.find().where('duration').equals(5).where('difficulty').equals('easy');
+
+        //const tours = await Tour.find(req.query) // 127.0.1:3000/api/v1/tours?duration=5&difficulty=easy
+
+        //const tours = await Tour.find(); // todos os documentos
+
+        const queryObj = {...req.query}; //cópia
+        //mesma coisa que:
+        // const queryObj = {
+        //     duration: req.query.duration,
+        //     difficulty: req.query.difficulty
+        // };
+
+        // deletar campos não desejados
+        const excludedFields= ['page','sort','limit','fields'];
+        excludedFields.forEach(el => delete queryObj[el]);
+
+        //console.log(req.query,queryObj);
+        //const tours = await Tour.find(queryObj);
+
+        //ADVANCED FILTERING
+        ///api/v1/tours?price[gte]=500&duration[lt]=10
+        let queryStr = JSON.stringify(queryObj);
+        queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
+        console.log(JSON.parse(queryStr));
+
+        const query = Tour.find(JSON.parse(queryStr));
+        const tours = await query;
+
+        
         res.status(200).json({
             status: 'success',
             results: tours.length,
@@ -59,6 +99,7 @@ exports.getAllTours = async (req, res) =>{
 exports.getTour = async (req, res) =>{
     try{
         // Tour.findOne({_id: req.params.id}) 
+
         const tour = await Tour.findById(req.params.id); // id vem da url
 
         res.status(200).json({
