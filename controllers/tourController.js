@@ -34,7 +34,7 @@ const Tour = require('./../models/tourModel');
 exports.getAllTours = async (req, res) =>{
     try{
 
-        console.log(req.query); // vem do url
+        //console.log(req.query); // vem do url
 
         // PESQUISAS/CONSULTAS/FILTER/ QUERIES:
 
@@ -69,9 +69,22 @@ exports.getAllTours = async (req, res) =>{
         ///api/v1/tours?price[gte]=500&duration[lt]=10
         let queryStr = JSON.stringify(queryObj);
         queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
-        console.log(JSON.parse(queryStr));
+        //console.log(JSON.parse(queryStr));
 
-        const query = Tour.find(JSON.parse(queryStr));
+        let query = Tour.find(JSON.parse(queryStr));
+
+        // SORTING
+        if(req.query.sort){
+            // MONGO: sort('price ratingAverage');
+            // URL: sort=price,ratingAverage;
+            const sortBy = req.query.sort.split(',').join(' ');
+            query = query.sort(sortBy);
+        } else{
+            // default
+            query = query.sort('-createdAt');
+        }
+
+
         const tours = await query;
 
         
