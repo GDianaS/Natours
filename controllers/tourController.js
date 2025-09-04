@@ -65,7 +65,7 @@ exports.getAllTours = async (req, res) =>{
         //console.log(req.query,queryObj);
         //const tours = await Tour.find(queryObj);
 
-        //ADVANCED FILTERING
+        //1. ADVANCED FILTERING
         ///api/v1/tours?price[gte]=500&duration[lt]=10
         let queryStr = JSON.stringify(queryObj);
         queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
@@ -73,10 +73,10 @@ exports.getAllTours = async (req, res) =>{
 
         let query = Tour.find(JSON.parse(queryStr));
 
-        // SORTING
+        //2. SORTING
         if(req.query.sort){
-            // MONGO: sort('price ratingAverage');
-            // URL: sort=price,ratingAverage;
+            // MONGO: sort('price ratingAverage')
+            // URL: sort=price,ratingAverage
             const sortBy = req.query.sort.split(',').join(' ');
             query = query.sort(sortBy);
         } else{
@@ -84,10 +84,38 @@ exports.getAllTours = async (req, res) =>{
             query = query.sort('-createdAt');
         }
 
+        //3. FIELD LIMITING
+        if(req.query.fields){
+            // MONGO: sort('price ratingAverage')
+            // URL: fields=name,duration,difficulty
+            const fields = req.query.fields.split(',').join(' ');
+            query = query.select(fields);
+        } else{
+            // default
+            query = query.select('-__v') // excluir o campo '__v' da vista do cliente
+        }
 
+        //4. PAGE AND LIMIT
+        // limit: number of documents for page
+        // URL: page=2&limit=10; 1-10 page 1, 11-20, page 2
+        //query = query.skip(10).limit(10); //page 2
+        //query = query.skip(20).limit(10); //page 3
+
+        // default:
+        const page = req.query.page * 1 || 1; // str -> number
+        const limit = req.query.limit * 1 || 100;
+        const skip = (page - 1) * limit;
+
+        query = query.skip(skip).limit(limit);
+
+        if(req.query.page){
+            const numTours = await Tour.countDocuments();
+            if(skip >= numTours) throw Error('This page does not exist!'); 
+        }
+
+        // EXECUTE QUERY
         const tours = await query;
 
-        
         res.status(200).json({
             status: 'success',
             results: tours.length,
