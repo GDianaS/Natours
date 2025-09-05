@@ -1,4 +1,5 @@
 const Tour = require('./../models/tourModel');
+const APIFeatures = require('./../utils/apiFeatures');
 
 //ALIAS
 exports.aliasTopTours = (req, res, next)=>{
@@ -7,59 +8,6 @@ exports.aliasTopTours = (req, res, next)=>{
     req.query.fields = 'name,price,ratingsAverage,summary,difficulty';
     next();
 };
-
-class APIFeatures{
-    constructor(query, queryString){
-        this.query = query;
-        this.queryString = queryString;
-    }
-
-    filter(){
-        const queryObj = {...this.queryString};
-        const excludedFields= ['page','sort','limit','fields'];
-        excludedFields.forEach(el => delete queryObj[el]);
-
-        let queryStr = JSON.stringify(queryObj);
-        queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
-
-        this.query = this.query.find(JSON.parse(queryStr));
-
-        return this; //entire object
-    }
-
-    sort(){
-        if(this.queryString.sort){
-            const sortBy = this.queryString.sort.split(',').join(' ');
-            this.query = this.query.sort(sortBy);
-        } else{
-           this.query = this.query.sort('-createdAt');
-        }
-
-        return this;
-    }
-
-    limitFields(){
-        if(this.queryString.fields){
-            const fields = this.queryString.fields.split(',').join(' ');
-            this.query = this.query.select(fields);
-        } else{
-            this.query = this.query.select('-__v')
-        }
-
-        return this;
-    }
-
-    paginate(){
-        const page = this.queryString.page * 1 || 1; 
-        const limit = this.queryString.limit * 1 || 100;
-        const skip = (page - 1) * limit;
-
-        this.query = this.query.skip(skip).limit(limit);
-
-        return this;
-    }
-
-}
 
 // ROUTES HANDLERS
 // GET METHOD
@@ -180,5 +128,118 @@ exports.deleteTour = async (req, res) =>{
         });
     }
     
+
+};
+
+
+//PIPELINE DE AGREGAÇÃO
+// Cada etapa ($stage) pega os documentos, transforma e passa para a próxima
+exports.getTourStats = async(req, res) => {
+    try {
+        const stats = await Tour.aggregate([
+            {
+            // 1) Filtrar tours com média de avaliação >= 4.5
+            $match: {ratingAverage: {$gte: 4.5}}
+            },
+            {
+            // 2) Agrupar por nível de dificuldade
+            $group: {
+                _id: { $toUpper : '$difficulty'}, // null : one big group
+                avgRating: { $avg: '$ratingAverage' },
+                numTours: {$sum: 1}, // ++1
+                numRatings: {$sum: '$ratingQuantity'},
+                avgPrice: { $avg: '$price'},
+                minPrice: { $min: '$price'},
+                maxPrice: { $max: '$price'},
+                }
+            },
+            {
+            // 3) Ordenar os grupos pelo preço médio (crescente)
+                $sort: { avgPrice: 1 } // names from the group
+            }
+            // {
+            //  $match: {_id: {$ne: 'EASY'}}
+            //}
+    
+        ]);
+
+        res.status(200).json({
+        status : 'success',
+        data:{
+            stats 
+            }
+        });
+
+        
+    } catch (error) {
+        res.status(404).json({
+            status: 'fail',
+            message: error
+        });
+    }
+};
+
+exports.getMonthyPlan = async (req, res) => {
+    try {
+        const year = req.params.year * 1;
+
+        const plan = await Tour.aggregate([
+            {
+            // 1) "Explodir" o array de datas (um doc para cada data)
+                $unwind: '$startDates'
+            },
+            {
+            // 2) Filtrar apenas as datas dentro do ano especificado
+                $match: {
+                    startDates: {
+                        $gte: new Date(`${year}-01-01`), // primeiro dia do ano
+                        $lte: new Date(`${year}-12-31`), // último dia do ano
+                    }
+                }
+            },
+            {
+            // 3) Agrupar por mês de início
+            //    contar quantos tours começam naquele mês
+            //    e criar lista com os nomes dos tours
+                $group: {
+                    // qtd de tour por mês
+                    _id: { $month: '$startDates'},
+                    numTourStarts: {$sum: 1},
+                    tours: { $push: '$name' } //array
+                }
+            },
+            {
+            // 4) Criar um campo "month" copiando o valor de _id
+                $addFields: { month: '$_id'}
+            },
+            {
+            // 5) Remover o campo _id da saída final
+                $project: {
+                    _id: 0, // 0: desaparece, 1: aparece
+                }
+            },
+            {
+            // 6) Ordenar do mês mais movimentado para o menos
+                $sort: {numTourStarts: -1}
+            },
+            {
+            // 7) Mostrar apenas os 12 primeiros resultados
+                $limit: 12
+            }
+        ]);
+
+        res.status(200).json({
+        status : 'success',
+        data:{
+            plan 
+            }
+        });
+        
+    } catch (error) {
+        res.status(404).json({
+            status: 'fail',
+            message: error
+        });
+    }
 
 };
