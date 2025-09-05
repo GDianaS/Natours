@@ -1,33 +1,4 @@
-//const fs = require('fs');
 const Tour = require('./../models/tourModel');
-
-// ${__dirname} =: arquivo raiz atual
-//const tours = JSON.parse(fs.readFileSync(`${__dirname}/../dev-data/data/tours-simple.json`));
-
-// exports.checkID = (req, res, next, val) => {
-// // req: request
-// // res: response
-// // next: next function
-// // val: hold the value of the param, in this case "id"
-//     console.log(`Tour id is: ${val}`);
-//     if(req.params.id * 1 > tours.length) {
-//         return res.status(404).json({
-//             status: 'fail',
-//             message: 'Invalid ID'
-//         });
-//     }
-//     next();
-// };
-
-// exports.checkBody = (req, res, next) =>{
-//     if(!req.body.name || !req.body.price){
-//         return res.status(400).json({
-//             status:'fail',
-//             message: 'Missing name or price'
-//         });
-//     }
-//     next();
-// };
 
 //ALIAS
 exports.aliasTopTours = (req, res, next)=>{
@@ -37,92 +8,70 @@ exports.aliasTopTours = (req, res, next)=>{
     next();
 };
 
+class APIFeatures{
+    constructor(query, queryString){
+        this.query = query;
+        this.queryString = queryString;
+    }
+
+    filter(){
+        const queryObj = {...this.queryString};
+        const excludedFields= ['page','sort','limit','fields'];
+        excludedFields.forEach(el => delete queryObj[el]);
+
+        let queryStr = JSON.stringify(queryObj);
+        queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
+
+        this.query = this.query.find(JSON.parse(queryStr));
+
+        return this; //entire object
+    }
+
+    sort(){
+        if(this.queryString.sort){
+            const sortBy = this.queryString.sort.split(',').join(' ');
+            this.query = this.query.sort(sortBy);
+        } else{
+           this.query = this.query.sort('-createdAt');
+        }
+
+        return this;
+    }
+
+    limitFields(){
+        if(this.queryString.fields){
+            const fields = this.queryString.fields.split(',').join(' ');
+            this.query = this.query.select(fields);
+        } else{
+            this.query = this.query.select('-__v')
+        }
+
+        return this;
+    }
+
+    paginate(){
+        const page = this.queryString.page * 1 || 1; 
+        const limit = this.queryString.limit * 1 || 100;
+        const skip = (page - 1) * limit;
+
+        this.query = this.query.skip(skip).limit(limit);
+
+        return this;
+    }
+
+}
+
 // ROUTES HANDLERS
 // GET METHOD
 exports.getAllTours = async (req, res) =>{
     try{
-
-        //console.log(req.query); // vem do url
-
-        // PESQUISAS/CONSULTAS/FILTER/ QUERIES:
-
-        // A)
-        // const tours = await Tour.find({
-        //     duration: 5,
-        //     difficulty: 'easy'
-        // });
-
-        // B)
-        //const tours = await Tour.find().where('duration').equals(5).where('difficulty').equals('easy');
-
-        //const tours = await Tour.find(req.query) // 127.0.1:3000/api/v1/tours?duration=5&difficulty=easy
-
-        //const tours = await Tour.find(); // todos os documentos
-
-        const queryObj = {...req.query}; //cópia
-        //mesma coisa que:
-        // const queryObj = {
-        //     duration: req.query.duration,
-        //     difficulty: req.query.difficulty
-        // };
-
-        // deletar campos não desejados
-        const excludedFields= ['page','sort','limit','fields'];
-        excludedFields.forEach(el => delete queryObj[el]);
-
-        //console.log(req.query,queryObj);
-        //const tours = await Tour.find(queryObj);
-
-        //1. ADVANCED FILTERING
-        ///api/v1/tours?price[gte]=500&duration[lt]=10
-        let queryStr = JSON.stringify(queryObj);
-        queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, match => `$${match}`);
-        //console.log(JSON.parse(queryStr));
-
-        let query = Tour.find(JSON.parse(queryStr));
-
-        //2. SORTING
-        if(req.query.sort){
-            // MONGO: sort('price ratingAverage')
-            // URL: sort=price,ratingAverage
-            const sortBy = req.query.sort.split(',').join(' ');
-            query = query.sort(sortBy);
-        } else{
-            // default
-            query = query.sort('-createdAt');
-        }
-
-        //3. FIELD LIMITING
-        if(req.query.fields){
-            // MONGO: sort('price ratingAverage')
-            // URL: fields=name,duration,difficulty
-            const fields = req.query.fields.split(',').join(' ');
-            query = query.select(fields);
-        } else{
-            // default
-            query = query.select('-__v') // excluir o campo '__v' da vista do cliente
-        }
-
-        //4. PAGE AND LIMIT
-        // limit: number of documents for page
-        // URL: page=2&limit=10; 1-10 page 1, 11-20, page 2
-        //query = query.skip(10).limit(10); //page 2
-        //query = query.skip(20).limit(10); //page 3
-
-        // default:
-        const page = req.query.page * 1 || 1; // str -> number
-        const limit = req.query.limit * 1 || 100;
-        const skip = (page - 1) * limit;
-
-        query = query.skip(skip).limit(limit);
-
-        if(req.query.page){
-            const numTours = await Tour.countDocuments();
-            if(skip >= numTours) throw Error('This page does not exist!'); 
-        }
-
         // EXECUTE QUERY
-        const tours = await query;
+        const features = new APIFeatures(Tour.find(), req.query)
+            .filter()
+            .sort()
+            .limitFields()
+            .paginate();
+        const tours = await features.query;
 
         res.status(200).json({
             status: 'success',
