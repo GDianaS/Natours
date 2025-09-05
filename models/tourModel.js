@@ -53,7 +53,20 @@ const tourSchema = new mongoose.Schema({
         select: false //hide from the output(cliente side)
     },
     startDates:[Date] // array de datas
+}, {
+    // Ativando as virtuals na saída JSON e Object
+    toJSON: {virtuals: true},
+    toObject: {virtuals: true}
 });
+
+// VIRTUAL PROPERTIES
+// Não são armazenadas no banco de dados (MongoDB).
+// Não pode ser usada em uma query
+// São úteis para valores derivados
+tourSchema.virtual('durationWeeks').get(function() {
+    return this.duration / 7;
+});
+
 // Model a partir do schema
 // Mongoose automaticamente cria a coleção com o nome em minúsculas e plural
 // modelo: Trour --> coleção no MongoDB: tours
