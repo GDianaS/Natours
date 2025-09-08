@@ -54,7 +54,11 @@ const tourSchema = new mongoose.Schema({
         default: Date.now(),
         select: false //hide from the output(cliente side)
     },
-    startDates:[Date] // array de datas
+    startDates:[Date], // array de datas
+    secretTour:{
+        type: Boolean,
+        default: false
+    }
 }, {
     // Ativando as virtuals na saída JSON e Object
     toJSON: {virtuals: true},
@@ -78,17 +82,33 @@ tourSchema.pre('save', function(next) {
     next();
 });
 
-tourSchema.pre('save', function(next){
-    console.log('Will save the document...');
+// tourSchema.pre('save', function(next){
+//     console.log('Will save the document...');
+//     next();
+// });
+
+// // post: runs after the middlewares
+// tourSchema.post('save', function(doc, next){
+//     console.log(doc);
+//     next();
+// });
+
+
+// QUERY MIDDLEWARE
+// pre: runs before commands starting with .find
+tourSchema.pre(/^find/, function(next){
+    // this: current query
+    this.find({secretTour: {$ne: true}}) //secret Tour is not true
+    this.start = Date.now()
     next();
 });
 
-// post: runs after the middlewares
-tourSchema.post('save', function(doc, next){
-    console.log(doc);
+tourSchema.post(/^find/, function(docs, next){
+    console.log(`Query took ${Date.now() - this.start} milliseconds!`);
+    // tem acesso a docs, pois já terminou
+    console.log(docs);
     next();
 });
-
 
 
 // Model a partir do schema
