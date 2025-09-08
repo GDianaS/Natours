@@ -106,7 +106,17 @@ tourSchema.pre(/^find/, function(next){
 tourSchema.post(/^find/, function(docs, next){
     console.log(`Query took ${Date.now() - this.start} milliseconds!`);
     // tem acesso a docs, pois já terminou
-    console.log(docs);
+    //console.log(docs);
+    next();
+});
+
+// AGGREGATION MIDDLEWARE
+tourSchema.pre('aggregate', function(next){
+    // this: current aggregate object
+    this.pipeline().unshift({
+        $match: {secretTour: {$ne : true}}
+    })// add at the beginning of the array --: new stage in the aggregation pipeline
+    //console.log(this.pipeline());
     next();
 });
 
