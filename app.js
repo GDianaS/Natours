@@ -1,6 +1,8 @@
 const fs = require('fs')
 const express = require('express');
 const morgan = require('morgan'); //HTTP request logger middleware
+const AppError = require('./utils/appError');
+const globalErrorHandler = require('./controllers/errorController')
 
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/userRoutes');
@@ -31,8 +33,22 @@ app.use((req, res, next) => {
 });
 
 // middlewares anteriores serão executados, e só depois os middlewares especificos (tourRoutes,userRoutes) serão executados 
+
+
 // ROUTES
 app.use('/api/v1/tours', tourRouter); 
 app.use('/api/v1/users', userRouter); 
+
+// ERROR HANDLING: UNHANDLED ROUTES
+// se chegou até aqui, quer dizer que nenhuma das rotas foi usada
+app.all('*', (req, res, next) => {
+    // const error = new Error(`Can't find ${req.originalUrl} on this server`);
+    // error.status = 'fail';
+    // error.statusCode = 404;
+
+    next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));
+});
+
+app.use(globalErrorHandler);
 
 module.exports = app;

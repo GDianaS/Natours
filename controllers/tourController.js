@@ -1,5 +1,6 @@
 const Tour = require('./../models/tourModel');
 const APIFeatures = require('./../utils/apiFeatures');
+const catchAsync = require('./../utils/catchAsync');
 
 //ALIAS
 exports.aliasTopTours = (req, res, next)=>{
@@ -11,8 +12,7 @@ exports.aliasTopTours = (req, res, next)=>{
 
 // ROUTES HANDLERS
 // GET METHOD
-exports.getAllTours = async (req, res) =>{
-    try{
+exports.getAllTours = catchAsync(async (req, res, next) =>{
         // EXECUTE QUERY
         const features = new APIFeatures(Tour.find(), req.query)
             .filter()
@@ -29,23 +29,14 @@ exports.getAllTours = async (req, res) =>{
             }
             
         });
-
-    } catch(err){
-        res.status(404).json({
-            status: 'fail',
-            message: err
-        });
-    }
     
-};
+});
 
 // GET METHOD WITH URL PARAMETERS
 // :parament
 // :optionalParament?
-exports.getTour = async (req, res) =>{
-    try{
+exports.getTour = catchAsync(async (req, res, next) =>{
         // Tour.findOne({_id: req.params.id}) 
-
         const tour = await Tour.findById(req.params.id); // id vem da url
 
         res.status(200).json({
@@ -55,18 +46,11 @@ exports.getTour = async (req, res) =>{
             }
         });
 
-    }catch(err){
-        res.status(404).json({
-            status: 'fail',
-            message: err
-        });
-    }
-};
+});
 
 // POST METHOD
-exports.createTour = async (req, res) => {
+exports.createTour = catchAsync(async (req, res, next) => {
 
-    try{
     // req.body: data that come from the body request
         const newTour = await Tour.create(req.body);
 
@@ -76,20 +60,20 @@ exports.createTour = async (req, res) => {
                 tour: newTour
             }
         });
-    } catch(err){
-        res.status(404).json({
-            status: 'fail',
-            message: err
-        });
 
-    }
-};
+    // try{
+    // [...]
+    // } catch(err){
+    //     res.status(404).json({
+    //         status: 'fail',
+    //         message: err
+    //     });
+
+    // }
+});
 
 // PATH METHOD
-exports.updateTour = async (req, res) =>{
-
-    try {
-
+exports.updateTour = catchAsync(async (req, res, next) =>{
         const tour = await Tour.findByIdAndUpdate(req.params.id, req.body, {
             new: true,
             runValidators: true // validators in model are run before update
@@ -101,41 +85,22 @@ exports.updateTour = async (req, res) =>{
             tour //tour: tour 
             }
         });
-     
-    } catch (error) {
-        res.status(404).json({
-            status: 'fail',
-            message: error
-        });
-    }
-}
+});
 
 // DELETE METHOD
-exports.deleteTour = async (req, res) =>{
-    try {
-
+exports.deleteTour = catchAsync(async (req, res, next) =>{
         await Tour.findByIdAndDelete(req.params.id);
 
         res.status(204).json({
             status : 'success',
             data: null
         });
-        
-    } catch (error) {
-        res.status(404).json({
-            status: 'fail',
-            message: error
-        });
-    }
-    
-
-};
+});
 
 
 //PIPELINE DE AGREGAÇÃO
 // Cada etapa ($stage) pega os documentos, transforma e passa para a próxima
-exports.getTourStats = async(req, res) => {
-    try {
+exports.getTourStats = catchAsync(async(req, res) => {
         const stats = await Tour.aggregate([
             {
             // 1) Filtrar tours com média de avaliação >= 4.5
@@ -170,17 +135,10 @@ exports.getTourStats = async(req, res) => {
             }
         });
 
-        
-    } catch (error) {
-        res.status(404).json({
-            status: 'fail',
-            message: error
-        });
-    }
-};
+});
 
-exports.getMonthyPlan = async (req, res) => {
-    try {
+exports.getMonthyPlan = catchAsync(async (req, res, next) => {
+
         const year = req.params.year * 1;
 
         const plan = await Tour.aggregate([
@@ -235,11 +193,4 @@ exports.getMonthyPlan = async (req, res) => {
             }
         });
         
-    } catch (error) {
-        res.status(404).json({
-            status: 'fail',
-            message: error
-        });
-    }
-
-};
+});
