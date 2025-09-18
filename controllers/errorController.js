@@ -1,11 +1,35 @@
 //ERROR HANDLING MIDDLEWARE
 
+const AppError = require('./../utils/appError');
+
+const handleCastErrorDB = error => {
+    console.log('Handle Cast Error Function');
+    const message = `Invalid ${error.path}: ${error.value}.`;
+    return new AppError(message, 400);
+}
+
+const handleDuplicateFieldsDB = err => {
+    // mensagem de erro de chave duplicada vem em err.message, e o valor duplicado em err.keyValue.
+    // se err.keyValue existir tranforme ele em uma string(stringify), caso não use o padrão duplicated field
+    const value = err.keyValue ? JSON.stringify(err.keyValue) : 'duplicated field';
+    console.log(value);
+    const message = `Duplicate field value: ${value}. Please use another value.`;
+    return new AppError(message, 400);
+
+}
+
+handleValidationErrorDB = err => {
+    const errors = Object.values(err.errors).map(el => el.message);
+    const message = `Invalid input data. ${errors.join('. ')}`;
+    return new AppError(message, 400);
+}
+
 const sendErrorDev = (err, res) => {
-    res.status(error.statusCode).json({
-            status: error.status,
-            error: error,
-            message: error.message,
-            stack: error.stack
+    res.status(err.statusCode).json({
+            status: err.status,
+            error: err,
+            message: err.message,
+            stack: err.stack
         });
 }
 
@@ -31,22 +55,29 @@ const sendErrorProd = (err, res) => {
         });
     }
 
-  
 }
 
-module.exports = (error, req, res, next) =>{
+module.exports = (err, req, res, next) =>{
 
     //console.log(error.stack);
     //console.log(error);
 
-    error.statusCode = error.statusCode || 500;
-    error.status = error.status || 'error';
+    err.statusCode = err.statusCode || 500;
+    err.status = err.status || 'error';
 
     if(process.env.NODE_ENV === 'development'){
 
-        sendErrorDev(error, res);
+        sendErrorDev(err, res);
 
     } else if(process.env.NODE_ENV === 'production'){
+   
+        //let error = { ...err }; --> está dando error ao criar uma cópia
+        let error = Object.assign(err);
+        console.log(error);
+
+        if(error.name === 'CastError') error = handleCastErrorDB(error); 
+        if(error.code === 11000) error = handleDuplicateFieldsDB(error);
+        if(error.name == 'ValidationError') error = handleValidationErrorDB(error);
        
         sendErrorProd(error, res);
 
